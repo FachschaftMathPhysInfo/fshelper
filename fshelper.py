@@ -34,7 +34,7 @@ konsenslevels = {
     },
 }
 
-KONSENS_TIMEOUT = 60
+KONSENS_STANDARD_TIMEOUT = 60
 
 waitqueue = []
 # different data format?
@@ -51,15 +51,15 @@ async def on_ready():
 
 
 @bot.command(pass_context=True, help="Konsensumfrage")
-async def konsens(ctx):
+async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     if ctx.message.author == bot.user:
         return
+    chosen_timeout = int(timeout)
     message = await ctx.send(
         "Es wird ein Konsens abgefragt!\n\n"
-        f":alarm_clock: Bitte stimmt in den nächsten {KONSENS_TIMEOUT}s ab!\n\n"
+        f":alarm_clock: Bitte stimmt in den nächsten {chosen_timeout}s ab!\n\n"
         "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
     )
-    # chosen_timeout = timout if tim
     for emoji, _ in konsenslevels.items():
         await message.add_reaction(emoji)
 
@@ -72,13 +72,13 @@ async def konsens(ctx):
     try:
         mode = await bot.wait_for('message',
                                   check=check(ctx.author),
-                                  timeout=KONSENS_TIMEOUT)
+                                  timeout=chosen_timeout)
         interruptor = mode.author
         await ctx.send(f"{interruptor.mention} hat den Konsens unterbrochen!")
     except asyncio.TimeoutError:
         await message.edit(
             content=
-            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:"
+            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:\n"
         )
         # remove the initial reactions from the bot
         for emoji, _ in reversed(konsenslevels.items()):
