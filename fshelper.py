@@ -7,12 +7,40 @@ import collections
 import queue
 from discord.ext import commands
 
-konsenslevel = ["Konsens ohne Vorbehalt", "Konsens mit leichten Bedenken", "Konsens mit Enthaltung", "Konsens mit beiseite stehen", "Schwere Bedenken", "VETO"]
+konsenslevels = {
+    "1️⃣": {
+        "number": 1,
+        "long": "Konsens ohne Vorbehalt"
+    },
+    "2️⃣": {
+        "number": 2,
+        "long": "Konsens mit leichten Bedenken"
+    },
+    "3️⃣": {
+        "number": 3,
+        "long": "Konsens mit Enthaltung"
+    },
+    "4️⃣": {
+        "number": 4,
+        "long": "Konsens mit beiseite stehen"
+    },
+    "5️⃣": {
+        "number": 5,
+        "long": "Schwere Bedenken"
+    },
+    "❌": {
+        "number": 6,
+        "long": "VETO"
+    },
+}
+
+KONSENS_STANDARD_TIMEOUT = 60
 
 waitqueue = []
 # different data format?
 
 bot = commands.Bot(command_prefix="fs!")
+
 
 @bot.event
 async def on_ready():
@@ -21,52 +49,64 @@ async def on_ready():
     print(bot.user.id)
     print('------')
 
-@bot.command(pass_context=True, help="Konsensumfrage")
-async def konsens(ctx):
+
+@bot.command(pass_context=True, help="Konsensumfrage <time>")
+async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     if ctx.message.author == bot.user:
         return
-    message = await ctx.send("Es wird ein Konsens abgefragt! Bitte stimmt ab: \n(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)")
-    await message.add_reaction("1️⃣")
-    await message.add_reaction("2️⃣")
-    await message.add_reaction("3️⃣")
-    await message.add_reaction("4️⃣")
-    await message.add_reaction("5️⃣")
-    await message.add_reaction("❌")
+    chosen_timeout = int(timeout)
+    message = await ctx.send(
+        "Es wird ein Konsens abgefragt!\n\n"
+        f":alarm_clock: Bitte stimmt in den nächsten {chosen_timeout}s ab!\n\n"
+        "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
+    )
+    for emoji, _ in konsenslevels.items():
+        await message.add_reaction(emoji)
+
     def check(author):
         def inner_check(message):
             return message.author == author and message.channel == ctx.channel
+
         return inner_check
+
     try:
-        mode = await bot.wait_for('message', check=check(ctx.author), timeout=60)
+        mode = await bot.wait_for('message',
+                                  check=check(ctx.author),
+                                  timeout=chosen_timeout)
         interruptor = mode.author
         await ctx.send(f"{interruptor.mention} hat den Konsens unterbrochen!")
     except asyncio.TimeoutError:
-        await message.remove_reaction("1️⃣", bot.user)
-        await message.remove_reaction("2️⃣", bot.user)
-        await message.remove_reaction("3️⃣", bot.user)
-        await message.remove_reaction("4️⃣", bot.user)
-        await message.remove_reaction("5️⃣", bot.user)
-        await message.remove_reaction("❌", bot.user)
-        konsens = message.reactions
-        worst_konsens = 0
-        for elem in konsens:
-            if elem.emoji == "❌":
-                worst_konsens = 6
-            elif elem.emoji == "5️⃣" and worst_konsens < 5:
-                worst_konsens = 5
-            elif elem.emoji == "1️⃣" and worst_konsens < 1:
-                worst_konsens = 1
-            elif elem.emoji == "2️⃣" and worst_konsens < 2:
-                worst_konsens = 2
-            elif elem.emoji == "3️⃣" and worst_konsens < 3:
-                worst_konsens = 3
-            elif elem.emoji == "4️⃣" and worst_konsens < 4:
-                worst_konsens = 4
-        worstresponse = konsenslevel[worst_konsens - 1]
-        if worst_konsens < 5:
-            await ctx.send("Es wurde ein " + worstresponse + " erreicht.")
+        await message.edit(
+            content=
+            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:\n"
+        )
+        # remove the initial reactions from the bot
+        for emoji, _ in reversed(konsenslevels.items()):
+            await message.remove_reaction(emoji, bot.user)
+
+        # update the message
+        message = await message.channel.fetch_message(message.id)
+
+        votes = message.reactions
+        # filter only defined mappings
+        votes = [
+            konsenslevels[reaction.emoji] for reaction in votes
+            if konsenslevels.get(reaction.emoji)
+        ]
+
+        # get the worst one from it
+        if votes:
+            worst_vote = max(votes, key=lambda x: x["number"])
+            if worst_vote["number"] < 5:
+                await ctx.send(":arrow_right: Es wurde ein " +
+                               worst_vote["long"] + " erreicht.")
+            else:
+                await ctx.send(
+                    ":no_entry_sign: " + worst_vote["long"] +
+                    ", es wurde kein Konsens erreicht. Zurück zur Besprechung!"
+                )
         else:
-            await ctx.send(worstresponse + ", es wurde kein Konsens erreicht. Zurück zur Besprechung!")
+            await ctx.send("Es hat niemand abgestimmt!")
 
 
 @bot.command(pass_context=True, help="Meldung")
@@ -74,8 +114,9 @@ async def m(ctx):
     global waitqueue
     if ctx.message.author == bot.user:
         return
-    waitqueue.append(ctx.message.author)
+    waitqueue.append(ctx.message)
     await ctx.message.add_reaction("✅")
+
 
 @bot.command(pass_context=True, help="Nächste Meldung drannehmen")
 async def next(ctx):
@@ -83,20 +124,26 @@ async def next(ctx):
     if ctx.message.author == bot.user:
         return
     try:
-        next_user = waitqueue.pop(0)
-        message = f"Als nächstes kommt {next_user.mention} dran."
+
+        message = waitqueue.pop(0)
+        await message.remove_reaction("✅", bot.user)
+        await message.add_reaction("☑️")
+        message = f"Als nächstes kommt {message.author.mention} dran."
     except IndexError:
-        message = "Es gibt keine neuen Meldungen."    
+        message = "Es gibt keine neuen Meldungen."
     await ctx.send(message)
 
+
 # TODO: see the entire queue in an embed(?)
+
 
 @bot.command(pass_context=True, help="Zeigt alle ausstehenden Meldungen an")
 async def meldungen(ctx):
     global waitqueue
     if ctx.message.author == bot.user:
         return
-    embed = discord.Embed(title="Meldungen", color=0x00ff00) # description here
+    embed = discord.Embed(title="Meldungen",
+                          color=0x00ff00)  # description here
     message = ""
     i = 1
     for elem in waitqueue:
@@ -106,6 +153,7 @@ async def meldungen(ctx):
         message = "Es stehen keine Meldungen aus."
     embed.add_field(name="Ausstehende Meldungen:", value=message, inline=False)
     await ctx.send(embed=embed)
+
 
 @bot.command(pass_context=True, help="Ziehe die jüngste Meldung zurück")
 async def zz(ctx):
