@@ -34,6 +34,8 @@ konsenslevels = {
     },
 }
 
+KONSENS_TIMEOUT = 60
+
 waitqueue = []
 # different data format?
 
@@ -53,9 +55,11 @@ async def konsens(ctx):
     if ctx.message.author == bot.user:
         return
     message = await ctx.send(
-        "Es wird ein Konsens abgefragt! Bitte stimmt ab: \n(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)"
+        "Es wird ein Konsens abgefragt!\n\n"
+        f":alarm_clock: Bitte stimmt in den nächsten {KONSENS_TIMEOUT}s ab!\n\n"
+        "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
     )
-
+    # chosen_timeout = timout if tim
     for emoji, _ in konsenslevels.items():
         await message.add_reaction(emoji)
 
@@ -68,10 +72,14 @@ async def konsens(ctx):
     try:
         mode = await bot.wait_for('message',
                                   check=check(ctx.author),
-                                  timeout=5)
+                                  timeout=KONSENS_TIMEOUT)
         interruptor = mode.author
         await ctx.send(f"{interruptor.mention} hat den Konsens unterbrochen!")
     except asyncio.TimeoutError:
+        await message.edit(
+            content=
+            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:"
+        )
         # remove the initial reactions from the bot
         for emoji, _ in reversed(konsenslevels.items()):
             await message.remove_reaction(emoji, bot.user)
@@ -90,11 +98,11 @@ async def konsens(ctx):
         if votes:
             worst_vote = max(votes, key=lambda x: x["number"])
             if worst_vote["number"] < 5:
-                await ctx.send("Es wurde ein " + worst_vote["long"] +
-                               " erreicht.")
+                await ctx.send(":arrow_right: Es wurde ein " +
+                               worst_vote["long"] + " erreicht.")
             else:
                 await ctx.send(
-                    worst_vote["long"] +
+                    ":no_entry_sign: " + worst_vote["long"] +
                     ", es wurde kein Konsens erreicht. Zurück zur Besprechung!"
                 )
         else:
