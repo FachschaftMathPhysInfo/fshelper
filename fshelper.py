@@ -50,7 +50,7 @@ async def on_ready():
     print('------')
 
 
-@bot.command(pass_context=True, help="Konsensumfrage")
+@bot.command(pass_context=True, help="Konsensumfrage <time>")
 async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     if ctx.message.author == bot.user:
         return
@@ -114,7 +114,7 @@ async def m(ctx):
     global waitqueue
     if ctx.message.author == bot.user:
         return
-    waitqueue.append(ctx.message.author)
+    waitqueue.append(ctx.message)
     await ctx.message.add_reaction("✅")
 
 
@@ -124,8 +124,11 @@ async def next(ctx):
     if ctx.message.author == bot.user:
         return
     try:
-        next_user = waitqueue.pop(0)
-        message = f"Als nächstes kommt {next_user.mention} dran."
+
+        message = waitqueue.pop(0)
+        await message.remove_reaction("✅", bot.user)
+        await message.add_reaction("☑️")
+        message = f"Als nächstes kommt {message.author.mention} dran."
     except IndexError:
         message = "Es gibt keine neuen Meldungen."
     await ctx.send(message)
