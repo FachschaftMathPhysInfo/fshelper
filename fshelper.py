@@ -52,16 +52,30 @@ async def on_ready():
 
 @bot.command(pass_context=True, help="Konsensumfrage <time>")
 async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
+    # delete the invocating message but keep track of the reference
+    replied_to = await ctx.fetch_message(ctx.message.reference.message_id
+                                         ) if ctx.message.reference else None
+    await ctx.message.delete()
+
     if ctx.message.author == bot.user:
         return
+
     chosen_timeout = int(timeout)
-    message = await ctx.send(
-        "Es wird ein Konsens abgefragt!\n\n"
+
+    message_text = (
+        f"Es wird ein Konsens von {ctx.message.author.mention} abgefragt!\n\n"
         f":alarm_clock: Bitte stimmt in den nächsten {chosen_timeout}s ab!\n\n"
         "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
     )
-    for emoji, _ in konsenslevels.items():
-        await message.add_reaction(emoji)
+    message = None
+    if replied_to:
+        message = await replied_to.reply(message_text)
+    else:
+        message = await ctx.send(message_text)
+
+    # add the initial reactions (and wait after)
+    await asyncio.gather(
+        *[message.add_reaction(emoji) for emoji, _ in konsenslevels.items()])
 
     def check(author):
         def inner_check(message):
@@ -77,12 +91,14 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         await ctx.send(f"{interruptor.mention} hat den Konsens unterbrochen!")
     except asyncio.TimeoutError:
         await message.edit(
-            content=
-            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:\n"
-        )
-        # remove the initial reactions from the bot
-        for emoji, _ in reversed(konsenslevels.items()):
-            await message.remove_reaction(emoji, bot.user)
+            content=("Der Konsens wurde abgefragt! :rocket:\n\n"
+                     ":ballot_box: Zähle stimmen und stelle fest:"))
+
+        # remove the initial reactions from the bot (and wait after)
+        await asyncio.gather(*[
+            message.remove_reaction(emoji, bot.user)
+            for emoji, _ in reversed(konsenslevels.items())
+        ])
 
         # update the message
         message = await message.channel.fetch_message(message.id)
@@ -98,11 +114,13 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         if votes:
             worst_vote = max(votes, key=lambda x: x["number"])
             if worst_vote["number"] < 5:
-                await ctx.send(":arrow_right: Es wurde ein " +
-                               worst_vote["long"] + " erreicht.")
+                await message.edit(content=message.content +
+                                   "\n\n:arrow_right: Es wurde ein " +
+                                   worst_vote["long"] + " erreicht.")
             else:
-                await ctx.send(
-                    ":no_entry_sign: " + worst_vote["long"] +
+                await message.edit(
+                    content=message.content + "\n\n:no_entry_sign: " +
+                    worst_vote["long"] +
                     ", es wurde kein Konsens erreicht. Zurück zur Besprechung!"
                 )
         else:
