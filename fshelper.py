@@ -52,14 +52,26 @@ async def on_ready():
 
 @bot.command(pass_context=True, help="Konsensumfrage <time>")
 async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
+    # delete the invocating message but keep track of the reference
+    replied_to = await ctx.fetch_message(ctx.message.reference.message_id
+                                         ) if ctx.message.reference else None
+    await ctx.message.delete()
+
     if ctx.message.author == bot.user:
         return
     chosen_timeout = int(timeout)
-    message = await ctx.send(
+
+    message_text = (
         "Es wird ein Konsens abgefragt!\n\n"
         f":alarm_clock: Bitte stimmt in den nächsten {chosen_timeout}s ab!\n\n"
         "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
     )
+    message = None
+    if replied_to:
+        message = await replied_to.reply(message_text)
+    else:
+        message = await ctx.send(message_text)
+
     for emoji, _ in konsenslevels.items():
         await message.add_reaction(emoji)
 
@@ -77,9 +89,8 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         await ctx.send(f"{interruptor.mention} hat den Konsens unterbrochen!")
     except asyncio.TimeoutError:
         await message.edit(
-            content=
-            "Der Konsens wurde abgefragt! :rocket:\n\n:ballot_box: Festgestelltes Ergebnis:\n"
-        )
+            content=("Der Konsens wurde abgefragt! :rocket:\n\n"
+                     ":ballot_box: Festgestelltes Ergebnis:"))
         # remove the initial reactions from the bot
         for emoji, _ in reversed(konsenslevels.items()):
             await message.remove_reaction(emoji, bot.user)
@@ -98,8 +109,9 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         if votes:
             worst_vote = max(votes, key=lambda x: x["number"])
             if worst_vote["number"] < 5:
-                await ctx.send(":arrow_right: Es wurde ein " +
-                               worst_vote["long"] + " erreicht.")
+                await message.edit(content=message.content +
+                                   "\n\n:arrow_right: Es wurde ein " +
+                                   worst_vote["long"] + " erreicht.")
             else:
                 await ctx.send(
                     ":no_entry_sign: " + worst_vote["long"] +
