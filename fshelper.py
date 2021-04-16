@@ -59,10 +59,11 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
 
     if ctx.message.author == bot.user:
         return
+
     chosen_timeout = int(timeout)
 
     message_text = (
-        "Es wird ein Konsens abgefragt!\n\n"
+        f"Es wird ein Konsens von {ctx.message.author.mention} abgefragt!\n\n"
         f":alarm_clock: Bitte stimmt in den nächsten {chosen_timeout}s ab!\n\n"
         "*(Um den Konsens abzubrechen, einfach irgendeine Nachricht in den Chat posten)*"
     )
@@ -72,8 +73,9 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     else:
         message = await ctx.send(message_text)
 
-    for emoji, _ in konsenslevels.items():
-        await message.add_reaction(emoji)
+    # add the initial reactions (and wait after)
+    await asyncio.gather(
+        *[message.add_reaction(emoji) for emoji, _ in konsenslevels.items()])
 
     def check(author):
         def inner_check(message):
@@ -90,10 +92,13 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     except asyncio.TimeoutError:
         await message.edit(
             content=("Der Konsens wurde abgefragt! :rocket:\n\n"
-                     ":ballot_box: Festgestelltes Ergebnis:"))
-        # remove the initial reactions from the bot
-        for emoji, _ in reversed(konsenslevels.items()):
-            await message.remove_reaction(emoji, bot.user)
+                     ":ballot_box: Zähle stimmen und stelle fest:"))
+
+        # remove the initial reactions from the bot (and wait after)
+        await asyncio.gather(*[
+            message.remove_reaction(emoji, bot.user)
+            for emoji, _ in reversed(konsenslevels.items())
+        ])
 
         # update the message
         message = await message.channel.fetch_message(message.id)
@@ -113,8 +118,9 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
                                    "\n\n:arrow_right: Es wurde ein " +
                                    worst_vote["long"] + " erreicht.")
             else:
-                await ctx.send(
-                    ":no_entry_sign: " + worst_vote["long"] +
+                await message.edit(
+                    content=message.content + "\n\n:no_entry_sign: " +
+                    worst_vote["long"] +
                     ", es wurde kein Konsens erreicht. Zurück zur Besprechung!"
                 )
         else:
