@@ -74,8 +74,8 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         message = await ctx.send(message_text)
 
     # add the initial reactions (and wait after)
-    await asyncio.gather(
-        *[message.add_reaction(emoji) for emoji, _ in konsenslevels.items()])
+    for elem in ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "❌"]:
+        await message.add_reaction(elem)
 
     def check(author):
         def inner_check(message):
@@ -95,10 +95,8 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
                      ":ballot_box: Zähle stimmen und stelle fest:"))
 
         # remove the initial reactions from the bot (and wait after)
-        await asyncio.gather(*[
-            message.remove_reaction(emoji, bot.user)
-            for emoji, _ in reversed(konsenslevels.items())
-        ])
+        for emoji in ["❌", "5️⃣", "4️⃣", "3️⃣", "2️⃣", "1️⃣"]:
+            await message.remove_reaction(emoji, bot.user)
 
         # update the message
         message = await message.channel.fetch_message(message.id)
@@ -165,7 +163,7 @@ async def meldungen(ctx):
     message = ""
     i = 1
     for elem in waitqueue:
-        message = message + str(i) + ": " + str(elem) + "\n"
+        message = message + str(i) + ": " + str(elem.author) + "\n"
         i += 1
     if message == "":
         message = "Es stehen keine Meldungen aus."
@@ -180,7 +178,7 @@ async def zz(ctx):
         return
     remove_user = -1
     for i in range(len(waitqueue)):
-        if waitqueue[i] == ctx.message.author:
+        if waitqueue[i].author == ctx.message.author:
             remove_user = i
     if remove_user != -1:
         waitqueue.pop(i)
