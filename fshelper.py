@@ -73,7 +73,7 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
     else:
         message = await ctx.send(message_text)
 
-    # add the initial reactions (and wait after)
+    # add the initial reactions
     for emoji, _ in konsenslevels.items():
         await message.add_reaction(emoji)
 
@@ -94,7 +94,7 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
             content=("Der Konsens wurde abgefragt! :rocket:\n\n"
                      ":ballot_box: Zähle stimmen und stelle fest:"))
 
-        # remove the initial reactions from the bot (and wait after)
+        # remove the initial reactions from the bot
         for emoji, _ in reversed(list(konsenslevels.items())):
             await message.remove_reaction(emoji, bot.user)
 
@@ -161,11 +161,9 @@ async def meldungen(ctx):
     embed = discord.Embed(title="Meldungen",
                           color=0x00ff00)  # description here
     message = ""
-    i = 1
-    for elem in waitqueue:
-        message = message + str(i) + ": " + str(elem.author) + "\n"
-        i += 1
-    if message == "":
+    for i, elem in enumerate(waitqueue):
+        message += f"{i}. {elem.author.display_name}\n"
+    if not message:
         message = "Es stehen keine Meldungen aus."
     embed.add_field(name="Ausstehende Meldungen:", value=message, inline=False)
     await ctx.send(embed=embed)
