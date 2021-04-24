@@ -74,8 +74,8 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
         message = await ctx.send(message_text)
 
     # add the initial reactions (and wait after)
-    for elem in ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "❌"]:
-        await message.add_reaction(elem)
+    for emoji, _ in konsenslevels.items():
+        await message.add_reaction(emoji)
 
     def check(author):
         def inner_check(message):
@@ -95,7 +95,7 @@ async def konsens(ctx, timeout=KONSENS_STANDARD_TIMEOUT):
                      ":ballot_box: Zähle stimmen und stelle fest:"))
 
         # remove the initial reactions from the bot (and wait after)
-        for emoji in ["❌", "5️⃣", "4️⃣", "3️⃣", "2️⃣", "1️⃣"]:
+        for emoji, _ in reversed(list(konsenslevels.items())):
             await message.remove_reaction(emoji, bot.user)
 
         # update the message
