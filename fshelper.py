@@ -37,7 +37,6 @@ konsenslevels = {
 KONSENS_STANDARD_TIMEOUT = 60
 
 waitqueue = []
-# different data format?
 
 bot = commands.Bot(command_prefix="fs!")
 
@@ -140,11 +139,12 @@ async def next(ctx):
     if ctx.message.author == bot.user:
         return
     try:
-
         message = waitqueue.pop(0)
         await message.remove_reaction("✅", bot.user)
         await message.add_reaction("☑️")
         message = f"Als nächstes kommt {message.author.mention} dran."
+        if len(waitqueue) > 0:
+            message += f"\n (Danach ist {waitqueue[0].author.mention} dran, bereite dich schon mal vor!)"
     except IndexError:
         message = "Es gibt keine neuen Meldungen."
     await ctx.send(message)
@@ -162,7 +162,7 @@ async def meldungen(ctx):
                           color=0x00ff00)  # description here
     message = ""
     for i, elem in enumerate(waitqueue):
-        message += f"{i}. {elem.author.display_name}\n"
+        message += f"{i + 1}. {elem.author.display_name}\n"
     if not message:
         message = "Es stehen keine Meldungen aus."
     embed.add_field(name="Ausstehende Meldungen:", value=message, inline=False)
@@ -179,7 +179,7 @@ async def zz(ctx):
         if waitqueue[i].author == ctx.message.author:
             remove_user = i
     if remove_user != -1:
-        waitqueue.pop(i)
+        waitqueue.pop(remove_user)
     await ctx.message.add_reaction("✅")
 
 
