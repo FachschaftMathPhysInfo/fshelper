@@ -143,7 +143,7 @@ async def next(ctx):
         await message.remove_reaction("✅", bot.user)
         await message.add_reaction("☑️")
         message = f"Als nächstes kommt {message.author.mention} dran."
-        if len(waitqueue) > 0:
+        if waitqueue:
             message += f"\n (Danach ist {waitqueue[0].author.mention} dran, bereite dich schon mal vor!)"
     except IndexError:
         message = "Es gibt keine neuen Meldungen."
