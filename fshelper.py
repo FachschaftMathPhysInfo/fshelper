@@ -5,6 +5,7 @@ import json
 import asyncio
 import collections
 import queue
+from datetime import date
 from discord.ext import commands
 
 konsenslevels = {
@@ -47,6 +48,18 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
+
+@bot.command(pass_context=True, help="Erstellt/postet den CodiMD-Link zur heutigen Sitzung")
+async def protokoll(ctx):
+    if ctx.message.author == bot.user:
+        return
+    #get todays date
+    today = str(date.today())
+    #create a CodiMD link for todays date
+    protocollink = "https://codimd.mathphys.stura.uni-heidelberg.de/FSSitzung-" + today
+    #paste the link into Discord chat
+    message = "Hier der Link zur heutigen Sitzung, automagisch erstellt vom FSHelper: \n" + protocollink
+    await ctx.send(message)
 
 
 @bot.command(pass_context=True, help="Konsensumfrage <time>")
