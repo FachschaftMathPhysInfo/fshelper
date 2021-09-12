@@ -239,10 +239,15 @@ async def ddzz(ctx):
 async def zs(ctx):
     if ctx.message.author == bot.user:
         return
+    replied_to = await ctx.fetch_message(ctx.message.reference.message_id
+                                         ) if ctx.message.reference else None
     msgauthor = ctx.message.author
     await ctx.message.delete()
     message = f"{msgauthor.mention} stimmt zu!"
-    await ctx.send(message)
+    if replied_to:
+        message = await replied_to.reply(message)
+    else:
+        message = await ctx.send(message)
 
 with open("config.json") as f:
     config = json.load(f)
