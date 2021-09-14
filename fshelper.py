@@ -39,6 +39,8 @@ KONSENS_STANDARD_TIMEOUT = 60
 
 waitqueue = []
 
+direktdazuqueue = []
+
 bot = commands.Bot(command_prefix="fs!")
 
 
@@ -152,18 +154,26 @@ async def next(ctx):
     if ctx.message.author == bot.user:
         return
     try:
-        message = waitqueue.pop(0)
+        message = direktdazuqueue.pop(0)
         await message.remove_reaction("✅", bot.user)
         await message.add_reaction("☑️")
-        message = f"Als nächstes kommt {message.author.mention} dran."
-        if waitqueue:
+        message = f"{message.author.mention} wollte direkt dazu was sagen!"
+        if direktdazuqueue:
+            message += f"\n (und {direktdazuqueue[0].author.mention} auch, bereite dich also vor!)"
+        elif not direktdazuqueue and waitqueue:
             message += f"\n (Danach ist {waitqueue[0].author.mention} dran, bereite dich schon mal vor!)"
     except IndexError:
-        message = "Es gibt keine neuen Meldungen."
+        try:
+            message = waitqueue.pop(0)
+            await message.remove_reaction("✅", bot.user)
+            await message.add_reaction("☑️")
+            message = f"Als nächstes kommt {message.author.mention} dran."
+            if waitqueue:
+                message += f"\n (Danach ist {waitqueue[0].author.mention} dran, bereite dich schon mal vor!)"
+        except IndexError:
+            message = "Es gibt keine neuen Meldungen."
     await ctx.send(message)
 
-
-# TODO: see the entire queue in an embed(?)
 
 
 @bot.command(pass_context=True, help="Zeigt alle ausstehenden Meldungen an")
@@ -173,6 +183,11 @@ async def meldungen(ctx):
         return
     embed = discord.Embed(title="Meldungen",
                           color=0x00ff00)  # description here
+    direktdazu = ""
+    for i, elem in enumerate(direktdazuqueue):
+        direktdazu += f"{i + 1}. {elem.author.display_name}\n"
+    if direktdazu:
+        embed.add_field(name="Direkt Dazu:", value=direktdazu, inline=False)
     message = ""
     for i, elem in enumerate(waitqueue):
         message += f"{i + 1}. {elem.author.display_name}\n"
@@ -192,9 +207,47 @@ async def zz(ctx):
         if waitqueue[i].author == ctx.message.author:
             remove_user = i
     if remove_user != -1:
-        waitqueue.pop(remove_user)
+        msg = waitqueue.pop(remove_user)
+        await msg.delete()
+    await ctx.message.add_reaction("☑️")
+
+@bot.command(pass_context=True, help="Direkt Dazu was sagen (hat Priorität)")
+async def dd(ctx):
+    global direktdazuqueue
+    if ctx.message.author == bot.user:
+        return
+    direktdazuqueue.append(ctx.message)
     await ctx.message.add_reaction("✅")
 
+
+@bot.command(pass_context=True, help="Ziehe die jüngste Meldung 'Direkt Dazu' zurück")
+async def ddzz(ctx):
+    global direktdazuqueue
+    if ctx.message.author == bot.user:
+        return
+    remove_user = -1
+    for i in range(len(direktdazuqueue)):
+        if direktdazuqueue[i].author == ctx.message.author:
+            remove_user = i
+    if remove_user != -1:
+        msg = direktdazuqueue.pop(remove_user)
+        await msg.delete()
+    await ctx.message.add_reaction("☑️")
+
+
+@bot.command(pass_context=True, help="Zustimmung aussprechen")
+async def zs(ctx):
+    if ctx.message.author == bot.user:
+        return
+    replied_to = await ctx.fetch_message(ctx.message.reference.message_id
+                                         ) if ctx.message.reference else None
+    msgauthor = ctx.message.author
+    await ctx.message.delete()
+    message = f"{msgauthor.mention} stimmt zu!"
+    if replied_to:
+        message = await replied_to.reply(message)
+    else:
+        message = await ctx.send(message)
 
 with open("config.json") as f:
     config = json.load(f)
