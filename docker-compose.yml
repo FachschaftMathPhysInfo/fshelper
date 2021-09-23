@@ -5,3 +5,4 @@ services:
   fshelper:
     image: fshelper:latext
     build: .
+    restart: always
